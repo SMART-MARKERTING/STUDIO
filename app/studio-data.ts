@@ -133,10 +133,12 @@ export function normalizeGeneratedPosts(generated: Array<Partial<StudioPost> & {
 
 export function newBlankPost(assets: StudioAsset[]): StudioPost {
   const scheduled = new Date(); scheduled.setHours(scheduled.getHours() + 1, 0, 0, 0); const now = new Date().toISOString();
-  return { id: `cs-manual-${Date.now()}`, title: "Untitled content", pillar: "Homeowner education", platforms: ["facebook", "instagram"], risk: "Green", status: "Draft", assetId: assets.find((a) => a.approval === "Approved")?.id ?? "", scheduledAt: scheduled.toISOString(), captions: captions("Write the core message for this post."), source: "", disclosure: "ADAXA-EVG-2026.07", campaignId: `manual-${scheduled.toISOString().slice(0,10)}`, landingPage: "https://smartr8.com/", notes: "", metrics: { impressions: 0, clicks: 0, leads: 0, applications: 0 }, providerPostIds: [], lastError: "", createdAt: now, updatedAt: now };
+  return { id: `cs-manual-${Date.now()}`, title: "", pillar: "Homeowner education", platforms: ["facebook", "instagram"], risk: "Green", status: "Draft", assetId: assets.find((a) => a.approval === "Approved")?.id ?? "", scheduledAt: scheduled.toISOString(), captions: { facebook: "", instagram: "", linkedin: "", twitter: "" }, source: "", disclosure: "ADAXA-EVG-2026.07", campaignId: `manual-${scheduled.toISOString().slice(0,10)}`, landingPage: "https://smartr8.com/", notes: "", metrics: { impressions: 0, clicks: 0, leads: 0, applications: 0 }, providerPostIds: [], lastError: "", createdAt: now, updatedAt: now };
 }
 
 export function addAudit(action: string, detail: string): AuditEvent { return { id: `audit-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, at: new Date().toISOString(), action, detail }; }
 export function formatSchedule(iso: string) { const d = new Date(iso); return Number.isNaN(d.getTime()) ? { day: "TBD", date: "—", time: "Unscheduled" } : { day: d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase(), date: d.toLocaleDateString("en-US", { day: "2-digit" }), time: d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) }; }
 export function localDateTimeValue(iso: string) { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); }
 export function riskRequiresSource(post: StudioPost) { return post.risk !== "Green" && (!post.source.trim() || !post.disclosure.trim()); }
+export function isPlaceholderText(value: string) { return /write the core message|lorem ipsum|untitled content|replace this|your caption here/i.test(value); }
+export function postHasPlaceholder(post: StudioPost) { return isPlaceholderText(post.title) || post.platforms.some((platform) => isPlaceholderText(post.captions[platform])); }

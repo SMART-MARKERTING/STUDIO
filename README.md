@@ -21,6 +21,7 @@ Configure secrets in the Cloudflare Worker/Pages project. Never put them in brow
 | `OPENAI_API_KEY` | Live structured weekly-batch generation |
 | `OPENAI_MODEL` | Optional model override; defaults to `gpt-5.6-luna` |
 | `AYRSHARE_API_KEY` | Social account verification, publishing, and analytics |
+| `AYRSHARE_PAID_PLAN` | Set to `true` only after upgrading Ayrshare; publishing stays blocked while free-plan caption branding is active |
 | `AYRSHARE_PROFILE_KEY` | Optional Ayrshare user-profile key |
 | `AYRSHARE_TWITTER_API_KEY` | X API consumer key required for X operations after March 31, 2026 |
 | `AYRSHARE_TWITTER_API_SECRET` | X API consumer secret required for X operations |

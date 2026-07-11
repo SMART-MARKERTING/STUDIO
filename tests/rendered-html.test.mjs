@@ -99,10 +99,20 @@ test("live publishing path returns provider post IDs", { concurrency: false }, a
     return Response.json({ postIds: [{ id: "provider-post-1", platform: "facebook" }] });
   };
   try {
-    const response = await worker.fetch(new Request("http://localhost/api/publish", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post: { id: "cs-test", status: "Approved", platforms: ["facebook"], captions: { facebook: "Educational caption" }, landingPage: "https://smartr8.com/", campaignId: "test-campaign", scheduledAt: "2026-01-01T00:00:00.000Z" } }) }), { ...env, AYRSHARE_API_KEY: "test-key" }, ctx);
+    const response = await worker.fetch(new Request("http://localhost/api/publish", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post: { id: "cs-test", title: "Evergreen mortgage education", status: "Approved", platforms: ["facebook"], captions: { facebook: "Educational caption" }, landingPage: "https://smartr8.com/", campaignId: "test-campaign", scheduledAt: "2026-01-01T00:00:00.000Z" } }) }), { ...env, AYRSHARE_API_KEY: "test-key", AYRSHARE_PAID_PLAN: "true" }, ctx);
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(body.status, "published");
     assert.deepEqual(body.providerPostIds, ["provider-post-1"]);
   } finally { globalThis.fetch = originalFetch; }
+});
+
+test("publishing blocks free-plan branding and placeholder captions", async () => {
+  const worker = await builtWorker();
+  const freePlan = await worker.fetch(new Request("http://localhost/api/publish", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }), { ...env, AYRSHARE_API_KEY: "test-key" }, ctx);
+  assert.equal(freePlan.status, 402);
+  assert.equal((await freePlan.json()).code, "FREE_PLAN_BRANDING_BLOCKED");
+  const placeholder = await worker.fetch(new Request("http://localhost/api/publish", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post: { id: "cs-placeholder", title: "HELOC education", status: "Approved", platforms: ["instagram"], captions: { instagram: "Write the core message for this post." } } }) }), { ...env, AYRSHARE_API_KEY: "test-key", AYRSHARE_PAID_PLAN: "true" }, ctx);
+  assert.equal(placeholder.status, 400);
+  assert.equal((await placeholder.json()).code, "PLACEHOLDER_COPY");
 });

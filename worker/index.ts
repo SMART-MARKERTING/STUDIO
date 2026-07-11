@@ -8,6 +8,7 @@ interface Env {
   OPENAI_API_KEY?: string;
   OPENAI_MODEL?: string;
   AYRSHARE_API_KEY?: string;
+  AYRSHARE_PAID_PLAN?: string;
   AYRSHARE_PROFILE_KEY?: string;
   AYRSHARE_TWITTER_API_KEY?: string;
   AYRSHARE_TWITTER_API_SECRET?: string;
@@ -154,11 +155,14 @@ function providerPostIds(body: unknown) {
 
 async function publish(request: Request, env: Env) {
   if (!env.AYRSHARE_API_KEY) return json({ error: "Social publishing is not configured. Add AYRSHARE_API_KEY in Cloudflare before sending live content.", code: "AYRSHARE_NOT_CONFIGURED" }, 503);
+  if (env.AYRSHARE_PAID_PLAN !== "true") return json({ error: "Publishing is blocked because Ayrshare Free adds its own branding to captions. Upgrade Ayrshare, then set AYRSHARE_PAID_PLAN=true as a Cloudflare secret.", code: "FREE_PLAN_BRANDING_BLOCKED" }, 402);
   const input = await request.json().catch(() => ({})) as { post?: Record<string, unknown>; assetUrl?: string };
   const post = input.post;
   if (!post || !Array.isArray(post.platforms) || !post.platforms.length || !["Approved", "Scheduled"].includes(String(post.status))) return json({ error: "Only approved content with at least one platform can be published.", code: "INVALID_POST" }, 400);
   const targets = post.platforms.filter((value): value is Platform => supportedPlatforms.includes(value as Platform));
   if (!targets.length) return json({ error: "No supported social platform was selected.", code: "INVALID_PLATFORM" }, 400);
+  const placeholder = /write the core message|lorem ipsum|untitled content|replace this|your caption here/i;
+  if (!String(post.title || "").trim() || placeholder.test(String(post.title || "")) || targets.some((platform) => placeholder.test(String((post.captions as Record<string, unknown> | undefined)?.[platform] || "")))) return json({ error: "Publishing blocked because the title or caption still contains placeholder copy.", code: "PLACEHOLDER_COPY" }, 400);
   const scheduleDate = String(post.scheduledAt || "");
   const scheduled = Number.isFinite(Date.parse(scheduleDate)) && Date.parse(scheduleDate) > Date.now() + 120_000;
   const results: Array<{ platform: Platform; ok: boolean; ids: string[]; error?: string }> = [];
@@ -210,7 +214,7 @@ async function api(request: Request, env: Env) {
   try {
     if (url.pathname === "/api/integrations" && request.method === "GET") {
       const status = await integrationStatus(env);
-      return json({ ...status, modelConfigured: Boolean(env.OPENAI_API_KEY), adminRestricted: Boolean(env.STUDIO_ADMIN_EMAIL) });
+      return json({ ...status, modelConfigured: Boolean(env.OPENAI_API_KEY), adminRestricted: Boolean(env.STUDIO_ADMIN_EMAIL), paidPlan: env.AYRSHARE_PAID_PLAN === "true" });
     }
     if (url.pathname === "/api/generate-batch" && request.method === "POST") return generateBatch(request, env);
     if (url.pathname === "/api/publish" && request.method === "POST") return publish(request, env);
