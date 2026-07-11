@@ -13,14 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Starter Project",
-  description: "A clean starting point for building your site.",
+  title: "Smart Marketing Content Studio",
+  description: "Create, review, schedule, publish, and measure compliant mortgage marketing content.",
   other: {
     "codex-preview": "development",
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/assets/smart-marketing-logo.jpg",
+    shortcut: "/assets/smart-marketing-logo.jpg",
   },
 };
 
