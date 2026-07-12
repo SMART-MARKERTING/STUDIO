@@ -43,6 +43,8 @@ test("reports safe integration status when provider secrets are absent", async (
   assert.equal(body.configured, false);
   assert.equal(body.modelConfigured, false);
   assert.equal(body.channels.facebook.connected, false);
+  assert.equal(body.channels.gmb.connected, false);
+  assert.equal(body.channels.tiktok.connected, false);
 });
 
 test("write endpoints fail safely when live credentials are absent", async () => {
