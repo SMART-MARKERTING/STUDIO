@@ -16,8 +16,8 @@ interface Env {
 }
 
 interface ExecutionContext { waitUntil(promise: Promise<unknown>): void; passThroughOnException(): void }
-type Platform = "facebook" | "instagram" | "linkedin" | "twitter";
-const supportedPlatforms: Platform[] = ["facebook", "instagram", "linkedin", "twitter"];
+type Platform = "facebook" | "instagram" | "linkedin" | "twitter" | "gmb" | "tiktok";
+const supportedPlatforms: Platform[] = ["facebook", "instagram", "linkedin", "twitter", "gmb", "tiktok"];
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
@@ -47,7 +47,12 @@ async function responseError(response: Response, fallback: string) {
 
 function parseConnectedAccounts(value: unknown) {
   const connected = new Map<Platform, string>();
-  const normalize = (name: string) => name.toLowerCase().replace("x/twitter", "twitter").replace(/^x$/, "twitter") as Platform;
+  const normalize = (name: string) => {
+    const compact = name.toLowerCase().replace(/[^a-z]/g, "");
+    if (["x", "xtwitter", "twitter"].includes(compact)) return "twitter";
+    if (["gmb", "googlebusiness", "googlebusinessprofile", "googlemybusiness"].includes(compact)) return "gmb";
+    return compact as Platform;
+  };
   if (Array.isArray(value)) {
     for (const item of value) {
       if (typeof item === "string") {
@@ -173,6 +178,7 @@ async function publish(request: Request, env: Env) {
     }
     const caption = trackedCaption(post, platform);
     if (!caption) { results.push({ platform, ok: false, ids: [], error: "Caption is empty." }); continue; }
+    if (platform === "tiktok" && !input.assetUrl?.startsWith("https://")) { results.push({ platform, ok: false, ids: [], error: "TikTok requires an approved public media asset." }); continue; }
     const payload: Record<string, unknown> = { post: caption, platforms: [platform] };
     if (input.assetUrl?.startsWith("https://")) payload.mediaUrls = [input.assetUrl];
     if (scheduled) payload.scheduleDate = new Date(scheduleDate).toISOString();
@@ -186,7 +192,7 @@ async function publish(request: Request, env: Env) {
   return json({ status: scheduled ? "scheduled" : "published", providerPostIds: successful.flatMap((result) => result.ids), results, warnings: results.filter((result) => !result.ok).map((result) => `${platformLabels(result.platform)}: ${result.error}`) });
 }
 
-function platformLabels(platform: Platform) { return platform === "twitter" ? "X" : platform[0].toUpperCase() + platform.slice(1); }
+function platformLabels(platform: Platform) { return platform === "twitter" ? "X" : platform === "gmb" ? "Google Business" : platform === "tiktok" ? "TikTok" : platform[0].toUpperCase() + platform.slice(1); }
 
 async function analytics(request: Request, env: Env) {
   if (!env.AYRSHARE_API_KEY) return json({ error: "Provider analytics is not configured. Add AYRSHARE_API_KEY; local recorded metrics and CSV export remain available.", code: "AYRSHARE_NOT_CONFIGURED" }, 503);
