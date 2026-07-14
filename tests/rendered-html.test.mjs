@@ -98,10 +98,13 @@ test("live publishing path returns provider post IDs", { concurrency: false }, a
     const sent = JSON.parse(String(init?.body));
     assert.deepEqual(sent.platforms, ["facebook"]);
     assert.match(sent.post, /utm_content=cs-test/);
+    assert.match(sent.post, /📍 Phoenix, Arizona/);
+    assert.match(sent.post, /#ArizonaHomes/);
+    assert.equal((sent.post.match(/#MortgageEducation/g) || []).length, 1);
     return Response.json({ postIds: [{ id: "provider-post-1", platform: "facebook" }] });
   };
   try {
-    const response = await worker.fetch(new Request("http://localhost/api/publish", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post: { id: "cs-test", title: "Evergreen mortgage education", status: "Approved", platforms: ["facebook"], captions: { facebook: "Educational caption" }, landingPage: "https://smartr8.com/", campaignId: "test-campaign", scheduledAt: "2026-01-01T00:00:00.000Z" } }) }), { ...env, AYRSHARE_API_KEY: "test-key", AYRSHARE_PAID_PLAN: "true" }, ctx);
+    const response = await worker.fetch(new Request("http://localhost/api/publish", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post: { id: "cs-test", title: "Evergreen mortgage education", status: "Approved", platforms: ["facebook"], captions: { facebook: "Educational caption #MortgageEducation" }, hashtags: "MortgageEducation, #ArizonaHomes #MortgageEducation", location: "Phoenix, Arizona", landingPage: "https://smartr8.com/", campaignId: "test-campaign", scheduledAt: "2026-01-01T00:00:00.000Z" } }) }), { ...env, AYRSHARE_API_KEY: "test-key", AYRSHARE_PAID_PLAN: "true" }, ctx);
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(body.status, "published");

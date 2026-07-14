@@ -132,9 +132,22 @@ async function generateBatch(request: Request, env: Env) {
   } catch { return json({ error: "OpenAI returned an unusable batch. The app will use the compliant local fallback.", code: "INVALID_MODEL_OUTPUT" }, 502); }
 }
 
+function normalizedHashtags(value: unknown, caption: string) {
+  const existing = new Set((caption.match(/#[\p{L}\p{N}_]+/gu) || []).map((tag) => tag.toLocaleLowerCase()));
+  const added = new Set<string>();
+  return String(value || "")
+    .split(/[\s,]+/)
+    .map((tag) => `#${tag.replace(/^#+/, "").replace(/[^\p{L}\p{N}_]/gu, "")}`)
+    .filter((tag) => tag.length > 1 && !existing.has(tag.toLocaleLowerCase()) && !added.has(tag.toLocaleLowerCase()) && Boolean(added.add(tag.toLocaleLowerCase())));
+}
+
 function trackedCaption(post: Record<string, unknown>, platform: Platform) {
   let caption = String((post.captions as Record<string, unknown> | undefined)?.[platform] || "").trim();
+  const location = String(post.location || "").trim();
+  const hashtags = normalizedHashtags(post.hashtags, caption);
+  const metadata = [location ? `📍 ${location}` : "", hashtags.join(" ")].filter(Boolean);
   const landingPage = String(post.landingPage || "").trim();
+  let trackedUrl = "";
   if (landingPage) {
     try {
       const link = new URL(landingPage);
@@ -142,12 +155,14 @@ function trackedCaption(post: Record<string, unknown>, platform: Platform) {
       link.searchParams.set("utm_medium", "organic_social");
       link.searchParams.set("utm_campaign", String(post.campaignId || "content-studio"));
       link.searchParams.set("utm_content", String(post.id || "content"));
-      const url = link.toString();
-      if (platform === "twitter" && `${caption}\n${url}`.length > 275) caption = `${caption.slice(0, Math.max(1, 272 - url.length)).trim()}…`;
-      caption = `${caption}\n\n${url}`;
+      trackedUrl = link.toString();
     } catch { /* Ignore invalid optional landing pages; validation below handles core post fields. */ }
   }
-  return caption;
+  const suffix = [...metadata, trackedUrl].filter(Boolean).join("\n\n");
+  if (platform === "twitter" && suffix && `${caption}\n\n${suffix}`.length > 280) {
+    caption = `${caption.slice(0, Math.max(1, 277 - suffix.length)).trim()}…`;
+  }
+  return [caption, suffix].filter(Boolean).join("\n\n");
 }
 
 function providerPostIds(body: unknown) {

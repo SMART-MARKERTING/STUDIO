@@ -13,6 +13,8 @@ export type StudioPost = {
   assetId: string;
   scheduledAt: string;
   captions: Record<Platform, string>;
+  hashtags: string;
+  location: string;
   source: string;
   disclosure: string;
   campaignId: string;
@@ -91,7 +93,7 @@ export function createFallbackBatch(existingCount = 0, from = new Date()): Studi
     scheduled.setHours(9 + index % 3, index % 2 ? 30 : 0, 0, 0);
     return {
       id: `cs-${Date.now()}-${existingCount + index + 1}`, title, pillar, platforms, risk, status: "Needs review", assetId,
-      scheduledAt: scheduled.toISOString(), captions: captions(base),
+      scheduledAt: scheduled.toISOString(), captions: captions(base), hashtags: "#MortgageEducation #HomeFinance", location: "",
       source: pillar === "Investor loans" ? "DSCR audited campaign playbook" : "Adaxa approved evergreen education library",
       disclosure: risk === "Green" ? "ADAXA-EVG-2026.07" : "ADAXA-MORTGAGE-REVIEW-2026.07",
       campaignId: `weekly-${monday.toISOString().slice(0, 10)}-${index + 1}`, landingPage: "https://smartr8.com/",
@@ -127,6 +129,7 @@ export function normalizeGeneratedPosts(generated: Array<Partial<StudioPost> & {
       platforms: platforms.length ? platforms : base.platforms, risk: (["Green", "Yellow", "Red"] as unknown[]).includes(item.risk) ? item.risk as Risk : base.risk,
       assetId: assets.some((asset) => asset.id === item.assetId) ? String(item.assetId) : base.assetId,
       captions: item.captions ? { ...base.captions, ...item.captions } : captions(caption),
+      hashtags: String(item.hashtags || base.hashtags), location: String(item.location || ""),
       source: String(item.source || "OpenAI-assisted draft using the approved content library"), disclosure: String(item.disclosure || base.disclosure),
       notes: "AI-generated draft. Human review is required before publishing.", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
@@ -135,7 +138,11 @@ export function normalizeGeneratedPosts(generated: Array<Partial<StudioPost> & {
 
 export function newBlankPost(assets: StudioAsset[]): StudioPost {
   const scheduled = new Date(); scheduled.setHours(scheduled.getHours() + 1, 0, 0, 0); const now = new Date().toISOString();
-  return { id: `cs-manual-${Date.now()}`, title: "", pillar: "Homeowner education", platforms: ["facebook", "instagram"], risk: "Green", status: "Draft", assetId: assets.find((a) => a.approval === "Approved")?.id ?? "", scheduledAt: scheduled.toISOString(), captions: { facebook: "", instagram: "", linkedin: "", twitter: "", gmb: "", tiktok: "" }, source: "", disclosure: "ADAXA-EVG-2026.07", campaignId: `manual-${scheduled.toISOString().slice(0,10)}`, landingPage: "https://smartr8.com/", notes: "", metrics: { impressions: 0, clicks: 0, leads: 0, applications: 0 }, providerPostIds: [], lastError: "", createdAt: now, updatedAt: now };
+  return { id: `cs-manual-${Date.now()}`, title: "", pillar: "Homeowner education", platforms: ["facebook", "instagram"], risk: "Green", status: "Draft", assetId: assets.find((a) => a.approval === "Approved")?.id ?? "", scheduledAt: scheduled.toISOString(), captions: { facebook: "", instagram: "", linkedin: "", twitter: "", gmb: "", tiktok: "" }, hashtags: "#MortgageEducation #HomeFinance", location: "", source: "", disclosure: "ADAXA-EVG-2026.07", campaignId: `manual-${scheduled.toISOString().slice(0,10)}`, landingPage: "https://smartr8.com/", notes: "", metrics: { impressions: 0, clicks: 0, leads: 0, applications: 0 }, providerPostIds: [], lastError: "", createdAt: now, updatedAt: now };
+}
+
+export function withPostMetadata(post: StudioPost): StudioPost {
+  return { ...post, hashtags: typeof post.hashtags === "string" ? post.hashtags : "#MortgageEducation #HomeFinance", location: typeof post.location === "string" ? post.location : "" };
 }
 
 export function addAudit(action: string, detail: string): AuditEvent { return { id: `audit-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, at: new Date().toISOString(), action, detail }; }
