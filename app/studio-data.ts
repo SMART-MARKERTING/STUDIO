@@ -2,6 +2,7 @@ export type ViewName = "Overview" | "Calendar" | "Content" | "Approvals" | "Asse
 export type Platform = "facebook" | "instagram" | "linkedin" | "twitter" | "gmb" | "tiktok";
 export type Risk = "Green" | "Yellow" | "Red";
 export type PostStatus = "Draft" | "Needs review" | "Approved" | "Scheduled" | "Published" | "Failed";
+export type HashtagGroup = { id: string; name: string; hashtags: string; enabled: boolean };
 
 export type StudioPost = {
   id: string;
@@ -15,6 +16,7 @@ export type StudioPost = {
   captions: Record<Platform, string>;
   hashtags: string;
   location: string;
+  appendLocationToCaption: boolean;
   source: string;
   disclosure: string;
   campaignId: string;
@@ -39,7 +41,7 @@ export type StudioAsset = {
 
 export type Channel = { id: Platform; name: string; mark: string; color: string; connected: boolean; handle: string; lastChecked: string };
 export type AuditEvent = { id: string; at: string; action: string; detail: string };
-export type StudioState = { version: 2; paused: boolean; posts: StudioPost[]; assets: StudioAsset[]; channels: Channel[]; audit: AuditEvent[] };
+export type StudioState = { version: 2; paused: boolean; posts: StudioPost[]; assets: StudioAsset[]; channels: Channel[]; hashtagGroups: HashtagGroup[]; audit: AuditEvent[] };
 
 export const platformLabels: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", linkedin: "LinkedIn", twitter: "X", gmb: "Google Business", tiktok: "TikTok" };
 export const platformMarks: Record<Platform, string> = { facebook: "f", instagram: "◎", linkedin: "in", twitter: "𝕏", gmb: "G", tiktok: "♪" };
@@ -93,7 +95,7 @@ export function createFallbackBatch(existingCount = 0, from = new Date()): Studi
     scheduled.setHours(9 + index % 3, index % 2 ? 30 : 0, 0, 0);
     return {
       id: `cs-${Date.now()}-${existingCount + index + 1}`, title, pillar, platforms, risk, status: "Needs review", assetId,
-      scheduledAt: scheduled.toISOString(), captions: captions(base), hashtags: "#MortgageEducation #HomeFinance", location: "",
+      scheduledAt: scheduled.toISOString(), captions: captions(base), hashtags: "#MortgageEducation #HomeFinance", location: "", appendLocationToCaption: true,
       source: pillar === "Investor loans" ? "DSCR audited campaign playbook" : "Adaxa approved evergreen education library",
       disclosure: risk === "Green" ? "ADAXA-EVG-2026.07" : "ADAXA-MORTGAGE-REVIEW-2026.07",
       campaignId: `weekly-${monday.toISOString().slice(0, 10)}-${index + 1}`, landingPage: "https://smartr8.com/",
@@ -114,6 +116,10 @@ export function createInitialState(): StudioState {
   return {
     version: 2, paused: false, posts: seedPosts(), assets: bundledAssets,
     channels: (Object.keys(platformLabels) as Platform[]).map((id) => ({ id, name: platformLabels[id], mark: platformMarks[id], color: platformColors[id], connected: false, handle: "", lastChecked: "" })),
+    hashtagGroups: [
+      { id: "hashtags-evergreen", name: "Mortgage education", hashtags: "#MortgageEducation #HomeFinance", enabled: true },
+      { id: "hashtags-brand", name: "SmartR8 brand", hashtags: "#SmartR8 #AdaxaHome", enabled: false },
+    ],
     audit: [{ id: "audit-seed", at: new Date().toISOString(), action: "Workspace initialized", detail: "Functional local workspace created from approved campaign assets." }],
   };
 }
@@ -136,13 +142,14 @@ export function normalizeGeneratedPosts(generated: Array<Partial<StudioPost> & {
   });
 }
 
-export function newBlankPost(assets: StudioAsset[]): StudioPost {
+export function newBlankPost(assets: StudioAsset[], hashtagGroups: HashtagGroup[] = []): StudioPost {
   const scheduled = new Date(); scheduled.setHours(scheduled.getHours() + 1, 0, 0, 0); const now = new Date().toISOString();
-  return { id: `cs-manual-${Date.now()}`, title: "", pillar: "Homeowner education", platforms: ["facebook", "instagram"], risk: "Green", status: "Draft", assetId: assets.find((a) => a.approval === "Approved")?.id ?? "", scheduledAt: scheduled.toISOString(), captions: { facebook: "", instagram: "", linkedin: "", twitter: "", gmb: "", tiktok: "" }, hashtags: "#MortgageEducation #HomeFinance", location: "", source: "", disclosure: "ADAXA-EVG-2026.07", campaignId: `manual-${scheduled.toISOString().slice(0,10)}`, landingPage: "https://smartr8.com/", notes: "", metrics: { impressions: 0, clicks: 0, leads: 0, applications: 0 }, providerPostIds: [], lastError: "", createdAt: now, updatedAt: now };
+  const defaults = hashtagGroups.filter((group) => group.enabled).map((group) => group.hashtags).join(" ").trim();
+  return { id: `cs-manual-${Date.now()}`, title: "", pillar: "Homeowner education", platforms: ["facebook", "instagram"], risk: "Green", status: "Draft", assetId: assets.find((a) => a.approval === "Approved")?.id ?? "", scheduledAt: scheduled.toISOString(), captions: { facebook: "", instagram: "", linkedin: "", twitter: "", gmb: "", tiktok: "" }, hashtags: defaults, location: "", appendLocationToCaption: true, source: "", disclosure: "ADAXA-EVG-2026.07", campaignId: `manual-${scheduled.toISOString().slice(0,10)}`, landingPage: "https://smartr8.com/", notes: "", metrics: { impressions: 0, clicks: 0, leads: 0, applications: 0 }, providerPostIds: [], lastError: "", createdAt: now, updatedAt: now };
 }
 
 export function withPostMetadata(post: StudioPost): StudioPost {
-  return { ...post, hashtags: typeof post.hashtags === "string" ? post.hashtags : "#MortgageEducation #HomeFinance", location: typeof post.location === "string" ? post.location : "" };
+  return { ...post, hashtags: typeof post.hashtags === "string" ? post.hashtags : "#MortgageEducation #HomeFinance", location: typeof post.location === "string" ? post.location : "", appendLocationToCaption: post.appendLocationToCaption !== false };
 }
 
 export function addAudit(action: string, detail: string): AuditEvent { return { id: `audit-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, at: new Date().toISOString(), action, detail }; }

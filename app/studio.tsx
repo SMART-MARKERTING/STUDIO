@@ -37,7 +37,7 @@ const platforms = Object.keys(platformLabels) as Platform[];
 
 type Notice = { message: string; tone: "success" | "error" | "info" };
 
-export default function ContentStudio() {
+export default function ContentStudio({ embedded = false }: { embedded?: boolean }) {
   const [active, setActive] = useState<ViewName>("Overview");
   const [studio, setStudio] = useState<StudioState>(createInitialState);
   const [hydrated, setHydrated] = useState(false);
@@ -58,7 +58,13 @@ export default function ContentStudio() {
           Array.isArray(parsed.posts) &&
           Array.isArray(parsed.assets)
         )
-          savedState = { ...parsed, posts: parsed.posts.map(withPostMetadata) };
+          savedState = {
+            ...parsed,
+            posts: parsed.posts.map(withPostMetadata),
+            hashtagGroups: Array.isArray(parsed.hashtagGroups)
+              ? parsed.hashtagGroups
+              : createInitialState().hashtagGroups,
+          };
       }
     } catch {
       /* A damaged local copy should never stop the app. */
@@ -110,7 +116,7 @@ export default function ContentStudio() {
   }
 
   function createPost() {
-    const post = newBlankPost(studio.assets);
+    const post = newBlankPost(studio.assets, studio.hashtagGroups);
     setStudio((current) => ({
       ...current,
       posts: [post, ...current.posts],
@@ -359,7 +365,7 @@ export default function ContentStudio() {
   }
 
   return (
-    <main className="studio-shell">
+    <main className={`studio-shell ${embedded ? "studio-embedded" : ""}`}>
       <aside className="sidebar">
         <div className="brand-lockup">
           <img src="/assets/smart-marketing-logo.jpg" alt="Smart Marketing" />
@@ -400,6 +406,9 @@ export default function ContentStudio() {
       </aside>
 
       <section className="workspace">
+        {embedded ? <nav className="studio-embedded-nav" aria-label="Social Planner navigation">
+          {nav.map((item) => <button key={item} className={active === item ? "active" : ""} onClick={() => setActive(item)}>{item}{item === "Approvals" && counts.review > 0 ? <b>{counts.review}</b> : null}</button>)}
+        </nav> : null}
         <header className="topbar">
           <div>
             <p>SMART MARKETING / CONTENT STUDIO</p>
@@ -745,6 +754,8 @@ function ContentView({
   const [query, setQuery] = useState("");
   const [platform, setPlatform] = useState<"all" | Platform>("all");
   const [status, setStatus] = useState<"all" | PostStatus>("all");
+  const [calendarMode, setCalendarMode] = useState<"month" | "list">("month");
+  const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const filtered = posts
     .filter(
       (post) =>
@@ -760,6 +771,16 @@ function ContentView({
         ? +new Date(a.scheduledAt) - +new Date(b.scheduledAt)
         : +new Date(b.updatedAt) - +new Date(a.updatedAt),
     );
+  const calendarDays = useMemo(() => {
+    const first = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
+    const start = new Date(first);
+    start.setDate(first.getDate() - first.getDay());
+    return Array.from({ length: 42 }, (_, index) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + index);
+      return day;
+    });
+  }, [calendarCursor]);
   return (
     <div className="page-content">
       <section className="section-heading">
@@ -813,8 +834,32 @@ function ContentView({
           ))}
         </select>
         <span>{filtered.length} shown</span>
+        {title === "Calendar" ? (
+          <div className="calendar-controls">
+            <button className={calendarMode === "month" ? "selected" : ""} onClick={() => setCalendarMode("month")}>Month</button>
+            <button className={calendarMode === "list" ? "selected" : ""} onClick={() => setCalendarMode("list")}>List</button>
+          </div>
+        ) : null}
       </div>
-      <section className="panel list-panel">
+      {title === "Calendar" && calendarMode === "month" ? (
+        <section className="panel studio-calendar-panel">
+          <header>
+            <button onClick={() => setCalendarCursor(new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1))}>Previous</button>
+            <h3>{calendarCursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3>
+            <button onClick={() => setCalendarCursor(new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1))}>Next</button>
+          </header>
+          <div className="studio-month-calendar">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <strong key={day}>{day}</strong>)}
+            {calendarDays.map((day) => {
+              const items = filtered.filter((post) => new Date(post.scheduledAt).toDateString() === day.toDateString());
+              return <div key={day.toISOString()} className={day.getMonth() === calendarCursor.getMonth() ? "" : "outside"}>
+                <span>{day.getDate()}</span>
+                {items.map((post) => <button key={post.id} onClick={() => open(post.id)}><b>{new Date(post.scheduledAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</b>{post.title || "Untitled draft"}</button>)}
+              </div>;
+            })}
+          </div>
+        </section>
+      ) : <section className="panel list-panel">
         {filtered.length ? (
           filtered.map((post) => (
             <PostRow
@@ -827,7 +872,7 @@ function ContentView({
         ) : (
           <div className="empty">No content matches these filters.</div>
         )}
-      </section>
+      </section>}
     </div>
   );
 }
@@ -1386,6 +1431,26 @@ function SettingsView({
     setStudio(createInitialState());
     notify("Workspace reset to the starter data.", "info");
   }
+  function addHashtagGroup() {
+    const name = window.prompt("Hashtag group name")?.trim();
+    if (!name) return;
+    setStudio((current) => ({
+      ...current,
+      hashtagGroups: [
+        ...current.hashtagGroups,
+        { id: `hashtags-${Date.now()}`, name, hashtags: "", enabled: false },
+      ],
+    }));
+  }
+  function patchHashtagGroup(id: string, patch: Partial<StudioState["hashtagGroups"][number]>) {
+    setStudio((current) => ({
+      ...current,
+      hashtagGroups: current.hashtagGroups.map((group) => group.id === id ? { ...group, ...patch } : group),
+    }));
+  }
+  function removeHashtagGroup(id: string) {
+    setStudio((current) => ({ ...current, hashtagGroups: current.hashtagGroups.filter((group) => group.id !== id) }));
+  }
   return (
     <div className="page-content">
       <section className="section-heading">
@@ -1471,6 +1536,21 @@ function SettingsView({
           </div>
         </section>
       </div>
+      <section className="panel hashtag-settings">
+        <div className="panel-head">
+          <div><span>DEFAULT CAPTION SETTINGS</span><h3>Hashtag presets</h3></div>
+          <button onClick={addHashtagGroup}>+ Hashtag group</button>
+        </div>
+        <p className="hashtag-help">Enabled groups are automatically added to new drafts. Every post can still edit or remove its own hashtags before approval.</p>
+        {studio.hashtagGroups.map((group) => (
+          <div className="hashtag-setting-row" key={group.id}>
+            <label className="hashtag-toggle"><input type="checkbox" checked={group.enabled} onChange={(event) => patchHashtagGroup(group.id, { enabled: event.target.checked })} /><span>{group.enabled ? "Always add" : "Disabled"}</span></label>
+            <input aria-label="Hashtag group name" value={group.name} onChange={(event) => patchHashtagGroup(group.id, { name: event.target.value })} />
+            <input aria-label={`${group.name} hashtags`} value={group.hashtags} placeholder="#MortgageEducation #SmartR8" onChange={(event) => patchHashtagGroup(group.id, { hashtags: event.target.value })} />
+            <button className="danger" onClick={() => removeHashtagGroup(group.id)}>Remove</button>
+          </div>
+        ))}
+      </section>
       <section className="panel audit-log">
         <div className="panel-head">
           <div>
@@ -1526,6 +1606,26 @@ function PostDrawer({
         ? draft.platforms.filter((p) => p !== platform)
         : [...draft.platforms, platform],
     );
+  }
+  function finalCaption(platform: Platform) {
+    let caption = draft.captions[platform].trim();
+    const existing = new Set((caption.match(/#[\p{L}\p{N}_]+/gu) || []).map((tag) => tag.toLocaleLowerCase()));
+    const added = new Set<string>();
+    const hashtags = draft.hashtags.split(/[\s,]+/).map((tag) => `#${tag.replace(/^#+/, "").replace(/[^\p{L}\p{N}_]/gu, "")}`).filter((tag) => tag.length > 1 && !existing.has(tag.toLocaleLowerCase()) && !added.has(tag.toLocaleLowerCase()) && Boolean(added.add(tag.toLocaleLowerCase())));
+    let trackedUrl = "";
+    if (draft.landingPage.trim()) {
+      try {
+        const link = new URL(draft.landingPage);
+        link.searchParams.set("utm_source", platform === "twitter" ? "x" : platform);
+        link.searchParams.set("utm_medium", "organic_social");
+        link.searchParams.set("utm_campaign", draft.campaignId || "content-studio");
+        link.searchParams.set("utm_content", draft.id);
+        trackedUrl = link.toString();
+      } catch { /* Invalid optional links are handled by the existing validation controls. */ }
+    }
+    const suffix = [draft.location.trim() && draft.appendLocationToCaption ? `Location: ${draft.location.trim()}` : "", hashtags.join(" "), trackedUrl].filter(Boolean).join("\n\n");
+    if (platform === "twitter" && suffix && `${caption}\n\n${suffix}`.length > 280) caption = `${caption.slice(0, Math.max(1, 277 - suffix.length)).trim()}...`;
+    return [caption, suffix].filter(Boolean).join("\n\n");
   }
   function store() {
     save(draft, "Draft saved");
@@ -1663,8 +1763,13 @@ function PostDrawer({
               onChange={(e) => change("location", e.target.value)}
             />
             <small>
-              Optional. Adds a visible location line to the outgoing post.
+              Search is not connected in this deployment. Enter a location manually.
             </small>
+          </label>
+          <label className="location-fallback">
+            <input type="checkbox" checked={draft.appendLocationToCaption} onChange={(event) => change("appendLocationToCaption", event.target.checked)} />
+            Append this location to the caption
+            <small>Native place identifiers are not available through the current provider adapter. Disable this option to save the location without publishing it.</small>
           </label>
           {draft.platforms.map((platform) => (
             <label key={platform}>
@@ -1683,6 +1788,7 @@ function PostDrawer({
                 {draft.captions[platform].length} caption characters ·
                 hashtags, location, and tracking link are added at publish time
               </small>
+              <span className="final-caption-preview"><b>Final published caption</b>{finalCaption(platform) || "Add caption content to preview the final post."}</span>
             </label>
           ))}
         </section>

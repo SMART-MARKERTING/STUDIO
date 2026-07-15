@@ -143,7 +143,7 @@ function normalizedHashtags(value: unknown, caption: string) {
 
 function trackedCaption(post: Record<string, unknown>, platform: Platform) {
   let caption = String((post.captions as Record<string, unknown> | undefined)?.[platform] || "").trim();
-  const location = String(post.location || "").trim();
+  const location = post.appendLocationToCaption === false ? "" : String(post.location || "").trim();
   const hashtags = normalizedHashtags(post.hashtags, caption);
   const metadata = [location ? `📍 ${location}` : "", hashtags.join(" ")].filter(Boolean);
   const landingPage = String(post.landingPage || "").trim();

@@ -32,7 +32,10 @@ test("renders development preview metadata", async () => {
     response.headers.get("content-type") ?? "",
     /^text\/html\b/i,
   );
-  assert.match(await response.text(), developmentPreviewMeta);
+  const html = await response.text();
+  assert.match(html, developmentPreviewMeta);
+  assert.match(html, /SmartR8/);
+  assert.match(html, /Mobile navigation/);
 });
 
 test("reports safe integration status when provider secrets are absent", async () => {
@@ -120,4 +123,18 @@ test("publishing blocks free-plan branding and placeholder captions", async () =
   const placeholder = await worker.fetch(new Request("http://localhost/api/publish", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post: { id: "cs-placeholder", title: "HELOC education", status: "Approved", platforms: ["instagram"], captions: { instagram: "Write the core message for this post." } } }) }), { ...env, AYRSHARE_API_KEY: "test-key", AYRSHARE_PAID_PLAN: "true" }, ctx);
   assert.equal(placeholder.status, 400);
   assert.equal((await placeholder.json()).code, "PLACEHOLDER_COPY");
+});
+
+test("location caption fallback can be explicitly disabled", { concurrency: false }, async () => {
+  const worker = await builtWorker();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (_input, init) => {
+    const sent = JSON.parse(String(init?.body));
+    assert.doesNotMatch(sent.post, /Phoenix, Arizona/);
+    return Response.json({ postIds: [{ id: "provider-post-location", platform: "facebook" }] });
+  };
+  try {
+    const response = await worker.fetch(new Request("http://localhost/api/publish", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ post: { id: "cs-location", title: "Evergreen mortgage education", status: "Approved", platforms: ["facebook"], captions: { facebook: "Educational caption" }, hashtags: "", location: "Phoenix, Arizona", appendLocationToCaption: false, scheduledAt: "2026-01-01T00:00:00.000Z" } }) }), { ...env, AYRSHARE_API_KEY: "test-key", AYRSHARE_PAID_PLAN: "true" }, ctx);
+    assert.equal(response.status, 200);
+  } finally { globalThis.fetch = originalFetch; }
 });
