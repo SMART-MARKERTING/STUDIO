@@ -1,8 +1,15 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "studio",
+  "account_id": "8df1a8fc9cdb76aaf2211a9cf93c2a50",
   "main": "dist/server/index.js",
   "compatibility_date": "2026-05-15",
+  "routes": [
+    {
+      "pattern": "studio.smartr8.com",
+      "custom_domain": true
+    }
+  ],
   "assets": {
     "directory": "dist/client",
     "binding": "ASSETS"
