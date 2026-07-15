@@ -1,5 +1,5 @@
-import SmartR8Crm from "./crm/shell";
+import ContentStudio from "./studio";
 
 export default function Home() {
-  return <SmartR8Crm />;
+  return <ContentStudio />;
 }

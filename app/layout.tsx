@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import "./crm.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SmartR8 CRM",
-  description: "Mobile-first conversations, follow-up, files, reputation, and social publishing for Smart Marketing.",
+  title: "Smart Marketing Content Studio",
+  description: "Create, review, schedule, publish, and measure compliant mortgage marketing content.",
   other: {
     "codex-preview": "development",
   },

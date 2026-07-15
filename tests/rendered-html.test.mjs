@@ -32,10 +32,7 @@ test("renders development preview metadata", async () => {
     response.headers.get("content-type") ?? "",
     /^text\/html\b/i,
   );
-  const html = await response.text();
-  assert.match(html, developmentPreviewMeta);
-  assert.match(html, /SmartR8/);
-  assert.match(html, /Mobile navigation/);
+  assert.match(await response.text(), developmentPreviewMeta);
 });
 
 test("reports safe integration status when provider secrets are absent", async () => {
